@@ -2,6 +2,10 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 from geopy.distance import geodesic
+import pandas as pd
+
+# --- CONFIGURATION ---
+EXPORT_TO_EXCEL = False  # Set to True to export data to Excel file
 
 # --- 1. Define the Distance Calculation Models ---
 R = 6371.0  # Earth's mean radius in km
@@ -57,18 +61,18 @@ routes = [
     {'name': 'Casablanca -> Dubai', 'start': (33.394318, -7.60144), 'end': (25.251686, 55.37014)},
     
     # Additional balanced routes
-    {'name': 'Amsterdam -> Brussels', 'start': (52.31, 4.76), 'end': (50.90, 4.54)},
-    {'name': 'LA -> Tokyo', 'start': (33.9425, -118.4081), 'end': (35.7647, 139.7867)},
-    {'name': 'London -> Singapore', 'start': (51.4700, -0.4543), 'end': (1.3644, 103.9915)},
-    {'name': 'Cairo -> Johannesburg', 'start': (30.1219, 31.4056), 'end': (-26.1392, 28.2460)},
-    {'name': 'Tromsø -> Alta', 'start': (69.6819, 18.9169), 'end': (69.9769, 23.3717)},
-    {'name': 'Oslo -> Helsinki', 'start': (60.1976, 11.1004), 'end': (60.3172, 24.9633)},
-    {'name': 'Helsinki -> Svalbard', 'start': (60.3172, 24.9633), 'end': (78.2461, 15.4656)},
-    {'name': 'Winnipeg -> Reykjavik', 'start': (49.9100, -97.2400), 'end': (63.9850, -22.6056)},
-    {'name': 'Anchorage -> Reykjavik', 'start': (61.1743, -149.9963), 'end': (63.9850, -22.6056)},
-    {'name': 'Seattle -> Helsinki', 'start': (47.4490, -122.3093), 'end': (60.3172, 24.9633)},
-    {'name': 'Santiago -> Sydney', 'start': (-33.3930, -70.7858), 'end': (-33.9461, 151.1772)},
-    {'name': 'Chicago -> Hong Kong', 'start': (41.9742, -87.9073), 'end': (22.3080, 113.9185)},
+    {'name': 'Amsterdam -> Brussels', 'start': (52.295151, 4.762096), 'end': (50.902508, 4.456756)},
+    {'name': 'LA -> Tokyo', 'start': (33.946953, -118.406807), 'end': (35.549389, 139.769028)},
+    {"name": "London -> Singapore", "start": (51.477500, -0.461390), "end": (1.359170, 103.989440)},
+    {"name": "Cairo -> Johannesburg", "start": (30.121940, 31.405560), "end": (-26.133610, 28.242220)},
+    {"name": "Tromsø -> Alta", "start": (69.681390, 18.917780), "end": (69.976110, 23.371670)},
+    {"name": "Oslo -> Helsinki", "start": (60.202780, 11.083890), "end": (60.317220, 24.963330)},
+    {"name": "Helsinki -> Svalbard", "start": (60.317220, 24.963330), "end": (78.246110, 15.465560)},
+    {"name": "Winnipeg -> Reykjavik", "start": (49.910000, -97.240000), "end": (63.985000, -22.605556)},
+    {"name": "Anchorage -> Reykjavik", "start": (61.174170, -149.998330), "end": (63.985000, -22.605556)},
+    {"name": "Seattle -> Helsinki", "start": (47.448890, -122.309440), "end": (60.317220, 24.963330)},
+    {"name": "Santiago -> Sydney", "start": (-33.392780, -70.785560), "end": (-33.946110, 151.177220)},
+    {"name": "Chicago -> Hong Kong", "start": (41.978610, -87.904720), "end": (22.308000, 113.918500)},
 ]
 
 # --- 3. Main Calculation and Categorization Loop ---
@@ -88,7 +92,20 @@ for route in routes:
         "accuracy_b": 100 - percent_error_b, "category": category
     })
 
-# --- 4. Plotting Function with YOUR Regression Formulas ---
+# --- 4. Export Data to Excel ---
+def export_to_excel(all_results, filename='math_ia_regression_data.xlsx'):
+    with pd.ExcelWriter(filename, engine='openpyxl') as writer:
+        normal_routes = sorted([r for r in all_results if r['category'] == 'normal'], key=lambda x: x['distance'])
+        high_routes = sorted([r for r in all_results if r['category'] == 'high'], key=lambda x: x['distance'])
+        df_normal = pd.DataFrame(normal_routes)[['distance', 'accuracy_a', 'accuracy_b']]
+        df_normal.columns = ['Benchmark Distance (x)', 'Model A Accuracy (y)', 'Model B Accuracy (y)']
+        df_normal.to_excel(writer, sheet_name='Normal Latitude Routes', index=False)
+        df_high = pd.DataFrame(high_routes)[['distance', 'accuracy_a', 'accuracy_b']]
+        df_high.columns = ['Benchmark Distance (x)', 'Model A Accuracy (y)', 'Model B Accuracy (y)']
+        df_high.to_excel(writer, sheet_name='High Latitude Routes', index=False)
+    print(f"\nData successfully exported to '{filename}'\n")
+
+# --- 5. Plotting Function ---
 def create_plot(data, title, model_a_fit_func, model_b_fit_func):
     if not data: return
     data.sort(key=lambda x: x['distance'])
@@ -102,16 +119,14 @@ def create_plot(data, title, model_a_fit_func, model_b_fit_func):
     ax.scatter(distances, acc_a, color='red')
     ax.scatter(distances, acc_b, color='blue')
 
-    # Generate points for the smooth best-fit lines using YOUR formulas
     x_fit = np.linspace(0, distances.max(), 400)
-    y_fit_a = np.minimum(model_a_fit_func(x_fit), 100) # Cap line at 100%
-    y_fit_b = np.minimum(model_b_fit_func(x_fit), 100) # Cap line at 100%
+    y_fit_a = np.minimum(model_a_fit_func(x_fit), 100)
+    y_fit_b = np.minimum(model_b_fit_func(x_fit), 100)
     
     ax.plot(x_fit, y_fit_a, color='red', linestyle='-', linewidth=2, label='Model A (Planar)')
     ax.plot(x_fit, y_fit_b, color='blue', linestyle='-', linewidth=2, label='Model B (Haversine)')
 
-    # --- Customizable Plot Limits & Ticks ---
-    y_min, y_max = 75, 100.5
+    y_min, y_max = 70, 100.5
     x_major_ticks = 2000
     
     ax.set_title(title, fontsize=16)
@@ -124,20 +139,30 @@ def create_plot(data, title, model_a_fit_func, model_b_fit_func):
     ax.set_xlim(0, distances.max() * 1.05)
     ax.xaxis.set_major_locator(plt.MultipleLocator(x_major_ticks))
 
-# --- 5. Define YOUR Regression Functions ---
+# --- 6. DEFINE YOUR REGRESSION FUNCTIONS HERE ---
+
 def normal_model_a_fit(x):
-    return 99.42339 + 0.0004061479*x - 1.037691e-7*x**2
+    # nA(x) = 99.41274 + 0.0004126016x - 1.041684*10^(-7)x^2
+    return 99.41274 + 0.0004126016*x - (1.041684*10**-7)*x**2
 
 def normal_model_b_fit(x):
-    return 0.000002277715*x + 99.85508
+    # nB(X) = 0.000002287517x + 99.8551
+    return 0.000002287517*x + 99.8551
 
 def high_model_a_fit(x):
-    return (4.3731e-11)*x**3 - (6.83021e-7)*x**2 + (0.0004136)*x + 99.93
+    # hA(x) = 100.1637 + 0.0002421034x - 6.527577*10^(-7)x^2 + 4.226957*10^(-11)x^3
+    return 100.1637 + 0.0002421034*x - (6.527577*10**-7)*x**2 + (4.226957*10**-11)*x**3
 
 def high_model_b_fit(x):
-    return 0.0000060596*x + 99.66998
+    # hB(x) = 0.000006119725x + 99.66944
+    return 0.000006119725*x + 99.66944
 
-# --- 6. Generate the Two Final Graphs ---
+# --- 7. Export Data and Generate Graphs ---
+if EXPORT_TO_EXCEL:
+    export_to_excel(results)
+else:
+    print("Excel export skipped (EXPORT_TO_EXCEL = False)")
+
 normal_routes_data = [r for r in results if r['category'] == 'normal']
 high_routes_data = [r for r in results if r['category'] == 'high']
 
