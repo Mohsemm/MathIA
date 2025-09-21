@@ -4,14 +4,11 @@ import matplotlib.pyplot as plt
 from geopy.distance import geodesic
 import pandas as pd
 
-# --- CONFIGURATION ---
-EXPORT_TO_EXCEL = False  # Set to True to export data to Excel file
-
 # --- 1. Define the Distance Calculation Models ---
 R = 6371.0  # Earth's mean radius in km
 
 def haversin(theta):
-    """Calculates the haversine of an angle given in radians, as per the IA derivation."""
+    """Calculates the haversine of an angle given in radians."""
     return math.sin(theta / 2)**2
 
 def planar_distance(lat1, lon1, lat2, lon2):
@@ -28,16 +25,36 @@ def planar_distance(lat1, lon1, lat2, lon2):
     return R * math.sqrt(x**2 + y**2)
 
 def haversine_distance(lat1, lon1, lat2, lon2):
-    """Calculates the great-circle distance using the Haversine formula (Model B)."""
+    """
+    Calculates the great-circle distance using the Haversine formula (Model B),
+    structured to match the formal derivation.
+    """
+    # Convert input degrees to radians for calculation
     lat1_rad, lon1_rad = math.radians(lat1), math.radians(lon1)
     lat2_rad, lon2_rad = math.radians(lat2), math.radians(lon2)
+    
+    # Calculate the change in latitude and longitude
     delta_lat = lat2_rad - lat1_rad
     delta_lon = lon2_rad - lon1_rad
-    if delta_lon > math.pi: delta_lon -= 2 * math.pi
-    elif delta_lon < -math.pi: delta_lon += 2 * math.pi
+    
+    # Ensure we are using the shortest longitude difference (wraps around the globe)
+    if delta_lon > math.pi:
+        delta_lon -= 2 * math.pi
+    elif delta_lon < -math.pi:
+        delta_lon += 2 * math.pi
+        
+    # Step 1: Calculate haversin(α) using the main formula
+    # haversin(α) = haversin(Δφ) + cos(φ₁)cos(φ₂)haversin(Δλ)
     haversin_alpha = haversin(delta_lat) + math.cos(lat1_rad) * math.cos(lat2_rad) * haversin(delta_lon)
+    
+    # Step 2: Solve for the central angle α from haversin(α)
+    # α = 2 * arcsin(sqrt(haversin(α)))
     alpha = 2 * math.asin(math.sqrt(haversin_alpha))
-    return R * alpha
+    
+    # Step 3: The final distance is D = R * α
+    distance = R * alpha
+    
+    return distance
 
 def get_route_characteristics(lat1, lon1, lat2, lon2):
     """Calculates initial bearing and max latitude for a route."""
@@ -88,22 +105,21 @@ for route in routes:
     percent_error_a = abs((dist_model_a - dist_benchmark) / dist_benchmark) * 100
     percent_error_b = abs((dist_model_b - dist_benchmark) / dist_benchmark) * 100
     results.append({
-        "distance": dist_benchmark, "accuracy_a": 100 - percent_error_a,
-        "accuracy_b": 100 - percent_error_b, "category": category
+        "name": route['name'], "distance": dist_benchmark,
+        "accuracy_a": 100 - percent_error_a, "accuracy_b": 100 - percent_error_b,
+        "category": category, "max_lat": max_lat
     })
 
-# --- 4. Export Data to Excel ---
-def export_to_excel(all_results, filename='math_ia_regression_data.xlsx'):
-    with pd.ExcelWriter(filename, engine='openpyxl') as writer:
-        normal_routes = sorted([r for r in all_results if r['category'] == 'normal'], key=lambda x: x['distance'])
-        high_routes = sorted([r for r in all_results if r['category'] == 'high'], key=lambda x: x['distance'])
-        df_normal = pd.DataFrame(normal_routes)[['distance', 'accuracy_a', 'accuracy_b']]
-        df_normal.columns = ['Benchmark Distance (x)', 'Model A Accuracy (y)', 'Model B Accuracy (y)']
-        df_normal.to_excel(writer, sheet_name='Normal Latitude Routes', index=False)
-        df_high = pd.DataFrame(high_routes)[['distance', 'accuracy_a', 'accuracy_b']]
-        df_high.columns = ['Benchmark Distance (x)', 'Model A Accuracy (y)', 'Model B Accuracy (y)']
-        df_high.to_excel(writer, sheet_name='High Latitude Routes', index=False)
-    print(f"\nData successfully exported to '{filename}'\n")
+# --- 4. NEW: Print the Categorization Table to the Console ---
+print("--- Route Categorization based on Max Latitude (φ_max) ---")
+print(f"{'Route':<28} | {'Max Lat (φ_max)':>18} | {'Category':>12}")
+print("-" * 62)
+# Sort results by category then by distance for a clean table
+sorted_results = sorted(results, key=lambda x: (x['category'], x['distance']))
+for r in sorted_results:
+    print(f"{r['name']:<28} | {r['max_lat']:>18.2f}° | {r['category']:>12}")
+print("\n")
+
 
 # --- 5. Plotting Function ---
 def create_plot(data, title, model_a_fit_func, model_b_fit_func):
@@ -140,29 +156,19 @@ def create_plot(data, title, model_a_fit_func, model_b_fit_func):
     ax.xaxis.set_major_locator(plt.MultipleLocator(x_major_ticks))
 
 # --- 6. DEFINE YOUR REGRESSION FUNCTIONS HERE ---
-
 def normal_model_a_fit(x):
-    # nA(x) = 99.41274 + 0.0004126016x - 1.041684*10^(-7)x^2
-    return 99.41274 + 0.0004126016*x - (1.041684*10**-7)*x**2
+    return 99.42339 + 0.0004061479*x - 1.037691e-7*x**2
 
 def normal_model_b_fit(x):
-    # nB(X) = 0.000002287517x + 99.8551
-    return 0.000002287517*x + 99.8551
+    return 0.000002277715*x + 99.85508
 
 def high_model_a_fit(x):
-    # hA(x) = 100.1637 + 0.0002421034x - 6.527577*10^(-7)x^2 + 4.226957*10^(-11)x^3
-    return 100.1637 + 0.0002421034*x - (6.527577*10**-7)*x**2 + (4.226957*10**-11)*x**3
+    return (4.3731e-11)*x**3 - (6.83021e-7)*x**2 + (0.0004136)*x + 99.93
 
 def high_model_b_fit(x):
-    # hB(x) = 0.000006119725x + 99.66944
-    return 0.000006119725*x + 99.66944
+    return 0.0000060596*x + 99.66998
 
-# --- 7. Export Data and Generate Graphs ---
-if EXPORT_TO_EXCEL:
-    export_to_excel(results)
-else:
-    print("Excel export skipped (EXPORT_TO_EXCEL = False)")
-
+# --- 7. Generate the Two Final Graphs ---
 normal_routes_data = [r for r in results if r['category'] == 'normal']
 high_routes_data = [r for r in results if r['category'] == 'high']
 
