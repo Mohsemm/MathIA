@@ -73,10 +73,10 @@ def get_route_characteristics(lat1, lon1, lat2, lon2):
 routes = [
     # Your 4 original routes are integrated
     {'name': 'Dubrovnik -> Milan', 'start': (42.559124, 18.267439), 'end': (45.666813, 9.698662)},
-    {'name': 'Milan -> Casablanca', 'start': (45.6301, 8.714771), 'end': (33.329132, -7.578973)},
-    {'name': 'Dubai -> Dubrovnik', 'start': (25.251686, 55.37014), 'end': (42.559124, 18.267439)},
-    {'name': 'Casablanca -> Dubai', 'start': (33.394318, -7.60144), 'end': (25.251686, 55.37014)},
-    
+    {'name': 'Milan -> Casablanca', 'start': (45.630100, 8.714771), 'end': (33.329132, -7.578973)},
+    {'name': 'Dubai -> Dubrovnik', 'start': (25.251686, 55.370140), 'end': (42.559124, 18.267439)},
+    {'name': 'Casablanca -> Dubai', 'start': (33.394318, -7.601440), 'end': (25.251686, 55.370140)},
+
     # Additional balanced routes
     {'name': 'Amsterdam -> Brussels', 'start': (52.295151, 4.762096), 'end': (50.902508, 4.456756)},
     {'name': 'LA -> Tokyo', 'start': (33.946953, -118.406807), 'end': (35.549389, 139.769028)},
