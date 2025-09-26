@@ -4,54 +4,50 @@ import matplotlib.pyplot as plt
 from geopy.distance import geodesic
 import pandas as pd
 
-# --- 1. Define the Distance Calculation Models ---
+
 R = 6371.0  # Earth's mean radius in km
 
 def haversin(theta):
-    """Calculates the haversine of an angle given in radians."""
+    """Calculates the haversine of an angle in radians."""
     return math.sin(theta / 2)**2
 
 def planar_distance(lat1, lon1, lat2, lon2):
-    """Calculates the distance using the Planar/Equirectangular model (Model A)."""
+    """Planar model (Model A)."""
+    # Calculate change in latitude and longitude, handling wrap around
     delta_lat = lat2 - lat1
     delta_lon = lon2 - lon1
     if delta_lon > 180: delta_lon -= 360
     elif delta_lon < -180: delta_lon += 360
-    lat1_rad, lat2_rad = math.radians(lat1), math.radians(lat2)
+
+    # Convert degrees to rads for calculations
+    delta_lat_rad = math.radians(delta_lat)
     delta_lon_rad = math.radians(delta_lon)
     midpoint_lat_rad = math.radians((lat1 + lat2) / 2)
-    x = delta_lon_rad * math.cos(midpoint_lat_rad)
-    y = math.radians(delta_lat)
-    return R * math.sqrt(x**2 + y**2)
+
+
+    y = R * delta_lat_rad
+    x = R * delta_lon_rad * math.cos(midpoint_lat_rad)
+
+    return math.sqrt(x**2 + y**2)
 
 def haversine_distance(lat1, lon1, lat2, lon2):
-    """
-    Calculates the great-circle distance using the Haversine formula (Model B),
-    structured to match the formal derivation.
-    """
-    # Convert input degrees to radians for calculation
+    """Great-Circle Haversine formula (Model B)"""
+    # Convert  degrees to rads for calculation
     lat1_rad, lon1_rad = math.radians(lat1), math.radians(lon1)
     lat2_rad, lon2_rad = math.radians(lat2), math.radians(lon2)
     
-    # Calculate the change in latitude and longitude
     delta_lat = lat2_rad - lat1_rad
     delta_lon = lon2_rad - lon1_rad
     
-    # Ensure we are using the shortest longitude difference (wraps around the globe)
     if delta_lon > math.pi:
         delta_lon -= 2 * math.pi
     elif delta_lon < -math.pi:
         delta_lon += 2 * math.pi
         
-    # Step 1: Calculate haversin(α) using the main formula
-    # haversin(α) = haversin(Δφ) + cos(φ₁)cos(φ₂)haversin(Δλ)
     haversin_alpha = haversin(delta_lat) + math.cos(lat1_rad) * math.cos(lat2_rad) * haversin(delta_lon)
     
-    # Step 2: Solve for the central angle α from haversin(α)
-    # α = 2 * arcsin(sqrt(haversin(α)))
     alpha = 2 * math.asin(math.sqrt(haversin_alpha))
-    
-    # Step 3: The final distance is D = R * α
+
     distance = R * alpha
     
     return distance
@@ -69,15 +65,14 @@ def get_route_characteristics(lat1, lon1, lat2, lon2):
     max_lat_rad = math.acos(abs(math.sin(initial_bearing_rad) * math.cos(lat1_rad)))
     return math.degrees(max_lat_rad)
 
-# --- 2. Balanced Input Data ---
 routes = [
-    # Your 4 original routes are integrated
+    # My 4 original routes
     {'name': 'Dubrovnik -> Milan', 'start': (42.559124, 18.267439), 'end': (45.666813, 9.698662)},
     {'name': 'Milan -> Casablanca', 'start': (45.630100, 8.714771), 'end': (33.329132, -7.578973)},
     {'name': 'Dubai -> Dubrovnik', 'start': (25.251686, 55.370140), 'end': (42.559124, 18.267439)},
     {'name': 'Casablanca -> Dubai', 'start': (33.394318, -7.601440), 'end': (25.251686, 55.370140)},
 
-    # Additional balanced routes
+    # Additional 12 routes
     {'name': 'Amsterdam -> Brussels', 'start': (52.295151, 4.762096), 'end': (50.902508, 4.456756)},
     {'name': 'LA -> Tokyo', 'start': (33.946953, -118.406807), 'end': (35.549389, 139.769028)},
     {"name": "London -> Singapore", "start": (51.477500, -0.461390), "end": (1.359170, 103.989440)},
@@ -92,7 +87,6 @@ routes = [
     {"name": "Chicago -> Hong Kong", "start": (41.978610, -87.904720), "end": (22.308000, 113.918500)},
 ]
 
-# --- 3. Main Calculation and Categorization Loop ---
 results = []
 for route in routes:
     lat1, lon1 = route['start']
@@ -110,7 +104,6 @@ for route in routes:
         "category": category, "max_lat": max_lat
     })
 
-# --- 4. NEW: Print the Categorization Table to the Console ---
 print("--- Route Categorization based on Max Latitude (φ_max) ---")
 print(f"{'Route':<28} | {'Max Lat (φ_max)':>18} | {'Category':>12}")
 print("-" * 62)
@@ -121,7 +114,6 @@ for r in sorted_results:
 print("\n")
 
 
-# --- 5. Plotting Function ---
 def create_plot(data, title, model_a_fit_func, model_b_fit_func):
     if not data: return
     data.sort(key=lambda x: x['distance'])
@@ -155,7 +147,7 @@ def create_plot(data, title, model_a_fit_func, model_b_fit_func):
     ax.set_xlim(0, distances.max() * 1.05)
     ax.xaxis.set_major_locator(plt.MultipleLocator(x_major_ticks))
 
-# --- 6. DEFINE YOUR REGRESSION FUNCTIONS HERE ---
+
 def normal_model_a_fit(x):
     return 99.42339 + 0.0004061479*x - 1.037691e-7*x**2
 
@@ -168,7 +160,7 @@ def high_model_a_fit(x):
 def high_model_b_fit(x):
     return 0.0000060596*x + 99.66998
 
-# --- 7. Generate the Two Final Graphs ---
+
 normal_routes_data = [r for r in results if r['category'] == 'normal']
 high_routes_data = [r for r in results if r['category'] == 'high']
 
